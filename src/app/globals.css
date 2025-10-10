@@ -1,0 +1,17 @@
+/* src/app/globals.css */
+@import "tailwindcss";
+
+html, body { height: 100%; }
+
+/* ซ่อน scrollbar */
+html, body {
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE, Edge */
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
