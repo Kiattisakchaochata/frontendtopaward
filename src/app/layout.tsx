@@ -6,6 +6,7 @@ import { Noto_Sans_Thai } from "next/font/google";
 import Script from "next/script";
 import LayoutClientWrapper from "@/components/LayoutClientWrapper"; // ✅ รวม Footer + Provider
 import TrackingInjector from "./_components/TrackingInjector";
+
 /* ------------------------------ Font ------------------------------ */
 const notoThai = Noto_Sans_Thai({
   subsets: ["thai", "latin"],
@@ -15,12 +16,9 @@ const notoThai = Noto_Sans_Thai({
 
 /* ----------------------------- Constants ----------------------------- */
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "");
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || "").replace(
-  /\/$/,
-);
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 const APP_NAME = "TopAward";
-const APP_DESC =
-  "รวมรีวิวร้าน/คลินิก/ที่เที่ยว พร้อมรูปภาพและเรตติ้ง จัดหมวดหมู่และค้นหาง่าย";
+const APP_DESC = "รวมรีวิวร้าน/คลินิก/ที่เที่ยว พร้อมรูปภาพและเรตติ้ง จัดหมวดหมู่และค้นหาง่าย";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -69,6 +67,11 @@ export async function generateMetadata(): Promise<Metadata> {
     ["รีวิว", "ร้านค้า", "คลินิก", "ที่เที่ยว", "TopAward"];
 
   return {
+    // ✅ ใส่ Google Site Verification ที่นี่ (อย่าประกาศ metadata ซ้ำอีกตัว)
+    verification: {
+      google: "AmCgvxN8Swf-ZHjQp_bUq9Q8xKoUdnHSRL2WMQ1FKQA",
+    },
+
     metadataBase: new URL(SITE_URL),
     title: { default: title, template: `%s | ${APP_NAME}` },
     description: desc,
@@ -169,43 +172,43 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
 
       <body
-  className={`${notoThai.variable} min-h-screen bg-[#0f172a] text-white antialiased`}
-  style={{
-    fontFamily:
-      "var(--font-th), system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans Thai', 'Noto Sans', sans-serif",
-  }}
->
-  {/* ✅ Google Tag Manager */}
-  {GTM_ID && (
-    <>
-      <Script
-        id="gtm-script"
-        strategy="afterInteractive"
-        dangerouslySetInnerHTML={{
-          __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+        className={`${notoThai.variable} min-h-screen bg-[#0f172a] text-white antialiased`}
+        style={{
+          fontFamily:
+            "var(--font-th), system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans Thai', 'Noto Sans', sans-serif",
+        }}
+      >
+        {/* ✅ Google Tag Manager */}
+        {GTM_ID && (
+          <>
+            <Script
+              id="gtm-script"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
 j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','${GTM_ID}');`,
-        }}
-      />
-      <noscript>
-        <iframe
-          src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
-          height="0"
-          width="0"
-          style={{ display: "none", visibility: "hidden" }}
-        />
-      </noscript>
-    </>
-  )}
+              }}
+            />
+            <noscript>
+              <iframe
+                src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
+                height="0"
+                width="0"
+                style={{ display: "none", visibility: "hidden" }}
+              />
+            </noscript>
+          </>
+        )}
 
-  {/* ✅ Tracking Scripts จาก Admin */}
-  <TrackingInjector />
+        {/* ✅ Tracking Scripts จาก Admin */}
+        <TrackingInjector />
 
-  {/* ✅ Client Side Layout */}
-  <LayoutClientWrapper>{children}</LayoutClientWrapper>
-</body>
+        {/* ✅ Client Side Layout */}
+        <LayoutClientWrapper>{children}</LayoutClientWrapper>
+      </body>
     </html>
   );
 }
