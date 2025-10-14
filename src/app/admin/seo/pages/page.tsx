@@ -87,14 +87,17 @@ function buildLocalBusinessJsonLd(input: {
 }
 function extractBuilderFromJsonLd(j: any) {
   if (!j || typeof j !== 'object') return null;
+
+  // รองรับ @type เป็น array หรือ string
+  const rawType = Array.isArray(j['@type']) ? j['@type'][0] : j['@type'];
+  const type = (rawType as string) || 'LocalBusiness';
+
   const addr = j.address || {};
-  // servesCuisine อาจเป็น array หรือ string
   const serves = Array.isArray(j.servesCuisine) ? j.servesCuisine.join(', ') : (j.servesCuisine || '');
-  // sameAs อาจเป็น array หรือ string
   const sameAs = Array.isArray(j.sameAs) ? j.sameAs.join(', ') : (j.sameAs || '');
 
   return {
-    type: (j['@type'] as string) || 'LocalBusiness',
+    type, // ✅ ต้องคืนค่าตัวนี้
     name: j.name || '',
     url: j.url || '',
     telephone: j.telephone || '',
@@ -351,6 +354,9 @@ return (
           />
         )}
       </div> {/* ปิด container */}
+      <style jsx global>{`
+        .swal2-container { z-index: 12050 !important; }
+      `}</style>
     </main>
   </Suspense>
 );
@@ -558,6 +564,10 @@ const saveWithImages = async () => {
 merged.description = form.description || '';
 merged.image = images;
 
+if (builderEnabled) {
+  const finalType = (schemaType === 'custom' ? customType : schemaType).trim();
+  if (finalType) merged['@type'] = finalType;  // บังคับใช้ชนิดที่ผู้ใช้เลือก
+}
   setBtnLoading(true);
   try {
     const onSavePromise = onSave({
@@ -716,7 +726,7 @@ setEditing(null);         // ปิดเลย ไม่ต้อง await Swal
   const merged = { ...(typeof form.jsonld === 'object' ? form.jsonld : {}), ...data };
   setJsonldTouched(true);
   setForm(s => ({ ...s, jsonld: merged }));
-  Swal.fire({ icon: 'success', title: 'เติม JSON-LD สำเร็จ', timer: 1200, showConfirmButton: false });
+  Swal.fire({ icon: 'success', title: 'เติม JSON-LD สำเร็จ', timer: 1200, showConfirmButton: false, heightAuto: false, });
 }}
                   >
                     เติม JSON-LD จากฟอร์ม

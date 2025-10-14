@@ -242,7 +242,7 @@ export default async function CategoryDetailPage({ params }: Params) {
                 return (
                   <Link
                     key={store.id}
-                    href={`/store/${store.id}`}
+                    href={`/store/${encodeURIComponent(String(store.id))}`}
                     prefetch={false}
                     className="
                       group overflow-hidden rounded-2xl bg-white/5

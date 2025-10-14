@@ -1,7 +1,6 @@
 /* src/app/store/page.tsx */
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
-
 import Link from "next/link";
 import { getReviewStats } from "@/lib/review";
 
@@ -161,7 +160,7 @@ export default async function StoresPage({
                 key={s.id}
                 className="overflow-hidden rounded-2xl bg-white/5 ring-1 ring-white/10"
               >
-                <Link href={`/store/${s.id}`}>
+                <Link href={`/store/${encodeURIComponent(String(s.id))}`}>
                   <div
                     className="aspect-[16/9] bg-cover bg-center"
                     style={{ backgroundImage: `url(${cover})` }}

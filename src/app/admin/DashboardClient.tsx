@@ -456,33 +456,39 @@ setLiveVisitorsTotal(total);
             </tr>
           </thead>
           <tbody>
-            {(() => {
-              const rows = liveVisitorsRows ?? visitorsByStore;
-              if (loadingVisitors && rows.length === 0) {
-                return <NoRow colSpan={3} text="กำลังโหลดข้อมูลผู้เข้าชม..." />;
-              }
-              if (rows.length === 0) {
-                return <NoRow colSpan={3} text="ยังไม่มีข้อมูลผู้เข้าชม" />;
-              }
-              return rows.map((v, i) => {
-                const s = data.find((x) => String(x.id) === String(v.store_id));
-                const iso = s ? getExpire(s) : null;
-                return (
-    <tr
-      key={
-        (v.store_id && String(v.store_id).trim()) ||
-        (v.store_name && String(v.store_name).trim()) ||
-        `vis-${i}`
-      }       className="border-t hover:bg-slate-50/60"
-    >
-                    <Td className="text-slate-900">{(v.store_name || "").trim() || "(ไม่ระบุชื่อ)"}</Td>
-                    <Td className="text-right">{v.count}</Td>
-                    <Td>{fmt(iso)}</Td>
-                  </tr>
-                );
-              });
-            })()}
-          </tbody>
+  {(() => {
+    // ใช้ live ถ้ามี ไม่งั้น fallback จาก server
+    let rows = liveVisitorsRows ?? visitorsByStore;
+
+    // ⬇️ กรองเฉพาะร้านที่ยังมีอยู่จริงใน data (กันเคสถูกลบแล้ว)
+    const knownIds = new Set(data.map(s => String(s.id)));
+    rows = rows.filter(r => knownIds.has(String(r.store_id)));
+
+    if (loadingVisitors && rows.length === 0) {
+      return <NoRow colSpan={3} text="กำลังโหลดข้อมูลผู้เข้าชม..." />;
+    }
+    if (rows.length === 0) {
+      return <NoRow colSpan={3} text="ยังไม่มีข้อมูลผู้เข้าชม" />;
+    }
+
+    return rows.map((v, i) => {
+      const s = data.find(x => String(x.id) === String(v.store_id));
+      const iso = s ? getExpire(s) : null;
+      return (
+        <tr
+          key={String(v.store_id) || `vis-${i}`}
+          className="border-t hover:bg-slate-50/60"
+        >
+          <Td className="text-slate-900">
+            {(v.store_name || "").trim() || "(ไม่ระบุชื่อ)"}
+          </Td>
+          <Td className="text-right">{v.count}</Td>
+          <Td>{fmt(iso)}</Td>
+        </tr>
+      );
+    });
+  })()}
+</tbody>
         </DataTable>
       </SectionBox>
 

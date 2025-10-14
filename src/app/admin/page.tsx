@@ -223,6 +223,8 @@ export default async function AdminDashboardPage() {
   }
 
   const stores = Array.from(byId.values());
+  const validIds = new Set(stores.map(s => String(s.id)));
+const visitorsFiltered = byStoreRaw.filter(v => validIds.has(String(v.store_id)));
   const totalVisitors =
     (visitorSummary as any).total_visitors ??
     (visitorSummary as any).totalVisitors ??
@@ -267,7 +269,7 @@ export default async function AdminDashboardPage() {
               stores: stores.length,
               visitors: Number(totalVisitors) || 0,
             }}
-            visitorsByStore={byStoreRaw}
+            visitorsByStore={visitorsFiltered} 
             stores={stores}
             expiredFallback={Array.from(expiredMap.entries())}
           />

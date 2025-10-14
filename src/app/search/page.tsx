@@ -119,7 +119,7 @@ export default async function SearchPage({
               <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {stores.map((s) => (
                   <li key={s.id} className="overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10">
-                    <Link href={`/store/${s.id}`} className="block">
+                    <Link href={`/store/${encodeURIComponent(String(s.id))}`} className="block">
                       <div
                         className="aspect-[16/9] bg-cover bg-center"
                         style={{

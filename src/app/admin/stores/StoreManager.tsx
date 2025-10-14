@@ -3,6 +3,7 @@
 
 import { useMemo, useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { normalizeGoogleEmbed, extractIframeSrc } from "@/lib/googleMap";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8899/api";
 
@@ -262,12 +263,19 @@ export default function StoreManager({
       if (coverRef.current?.files?.[0]) fd.append("cover", coverRef.current.files[0]);
 
       const soc: any = {};
-      if (lineUrl.trim()) soc.line = lineUrl.trim();
+if (lineUrl.trim()) soc.line = lineUrl.trim();
 if (facebookUrl.trim()) soc.facebook = facebookUrl.trim();
 if (tiktokUrl.trim()) soc.tiktok = tiktokUrl.trim();
 if (instagramUrl.trim()) soc.instagram = instagramUrl.trim();
-if (mapUrl.trim()) soc.map = mapUrl.trim();
-if (Object.keys(soc).length) fd.append("social_links", JSON.stringify(soc));
+
+if (mapUrl.trim()) {
+  const cleaned = normalizeGoogleEmbed(mapUrl.trim());
+  soc.map = cleaned ?? mapUrl.trim();  // ✅ เก็บลิงก์ maps.app.goo.gl ตรงๆ ได้
+}
+
+if (Object.keys(soc).length) {
+  fd.append("social_links", JSON.stringify(soc));
+}
 
       extraFiles.forEach((f, i) => {
         if (f) { fd.append("images", f); fd.append("orders", String(extraOrders[i] || i+1)); }
@@ -290,28 +298,46 @@ if (Object.keys(soc).length) fd.append("social_links", JSON.stringify(soc));
   }
 
   /* ------- EDIT MODAL ------- */
-  function openEdit(s: Store) {
-    setEditing(s);
-    setEditOpen(true);
-    const o: Record<string, number> = {};
-    (s.images || []).forEach((im) => { if (im.id) o[im.id] = im.order_number ?? 0; });
-    setEditImageOrders(o);
-    setEditNewFiles(null);
+function openEdit(s: Store) {
+  setEditing(s);
+  setEditOpen(true);
 
-    try {
-  const json = s.social_links ? JSON.parse(s.social_links) : {};
-  setEditLine(json?.line || "");
-  setEditFacebook(json?.facebook || "");
-  setEditTiktok(json?.tiktok || "");
-  setEditInstagram(json?.instagram || "");
-  setEditMap(json?.map || json?.gmap || json?.googlemap || json?.google_maps || "");
-} catch {
-  setEditLine("");
-  setEditFacebook("");
-  setEditTiktok("");
-  setEditInstagram("");
-}
+  // เตรียมลำดับรูป
+  const o: Record<string, number> = {};
+  (s.images || []).forEach((im) => {
+    if (im.id) o[im.id] = im.order_number ?? 0;
+  });
+  setEditImageOrders(o);
+  setEditNewFiles(null);
+
+  // ✅ รองรับ social_links ที่เป็น object หรือ string
+  let json: any = {};
+  try {
+    const raw = s.social_links as any;
+    json = !raw ? {} : (typeof raw === "string" ? JSON.parse(raw) : raw);
+  } catch {
+    json = {};
   }
+
+    // รองรับชื่อคีย์เดิมหลายรูปแบบ
+  const j = json || {};
+
+  setEditLine(j.line || j.line_url || j.lineUrl || j.LINE || "");
+  setEditFacebook(j.facebook || j.facebook_url || j.facebookUrl || j.fb || "");
+  setEditTiktok(j.tiktok || j.tik_tok || j.tiktok_url || j.tiktokUrl || "");
+  setEditInstagram(j.instagram || j.ig || j.instagram_url || j.instagramUrl || "");
+
+  // ✅ เพิ่ม fallback: ถ้าไม่มีใน json.map แต่มีใน s.map ให้ใช้ s.map
+  const rawMap =
+    j.map ||
+    j.gmap ||
+    j.googlemap ||
+    j.google_maps ||
+    (s as any).map || // ✅ fallback
+    "";
+  const onlySrc = rawMap ? extractIframeSrc(String(rawMap)) : null;
+  setEditMap((onlySrc || rawMap || "") as string);
+}
 
   async function saveEdit() {
     if (!editing) return;
@@ -336,7 +362,12 @@ if (editLine.trim()) soc.line = editLine.trim();
 if (editFacebook.trim()) soc.facebook = editFacebook.trim();
 if (editTiktok.trim()) soc.tiktok = editTiktok.trim();
 if (editInstagram.trim()) soc.instagram = editInstagram.trim();
-if (editMap.trim()) soc.map = editMap.trim(); 
+
+if (editMap.trim()) {
+  const cleaned = normalizeGoogleEmbed(editMap.trim());
+  soc.map = cleaned ?? editMap.trim();  // ✅ เก็บลิงก์เดิมถ้า normalize ไม่ได้
+}
+
 fd.append("social_links", JSON.stringify(soc));
 
       (editing.images || []).forEach((im) => {
@@ -633,19 +664,32 @@ fd.append("social_links", JSON.stringify(soc));
 
           <div>
             <label className={labelCls()}>ภาพหน้าปก (cover):</label>
-            <input
-  ref={coverRef}
-  className={inputCls()}
-  type="file"
-  accept="image/*"
-  onChange={(e) => {
-    const f = e.target.files?.[0];
-    if (f && f.size > 1024 * 1024) {
-  setError("ไฟล์เกิน 1MB กรุณาเลือกไฟล์ที่เล็กกว่า 1MB");
-  e.target.value = "";
-}
-  }}
-/>
+            <div className="relative">
+  <input
+    ref={coverRef}
+    className={`${inputCls()} pr-20`}
+    type="file"
+    accept="image/*"
+    onChange={(e) => {
+      const f = e.target.files?.[0];
+      if (f && f.size > 1024 * 1024) {
+        setError("ไฟล์เกิน 1MB กรุณาเลือกไฟล์ที่เล็กกว่า 1MB");
+        e.target.value = "";
+      }
+    }}
+  />
+  {coverRef.current?.files?.[0] && (
+    <button
+      type="button"
+      onClick={() => {
+        coverRef.current!.value = "";
+      }}
+      className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-600 text-white text-sm rounded px-2 py-1 hover:bg-red-700"
+    >
+      ลบไฟล์
+    </button>
+  )}
+</div>
           </div>
 
           <div>
@@ -653,26 +697,42 @@ fd.append("social_links", JSON.stringify(soc));
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {[0,1,2,3,4].map((idx)=>(
                 <div key={idx} className="grid grid-cols-1 md:grid-cols-[1fr_140px_80px] items-center gap-2">
-                  <input
-  ref={(el)=>{ if(el) fileRefs.current[idx] = el; }}
-  type="file"
-  accept="image/*"
-  className={inputCls()}
-  onChange={(e) => {
-  const file = e.target.files?.[0] || null;
-  if (file && file.size > 1024 * 1024) {
-    setError("ไฟล์เกิน 1MB กรุณาเลือกไฟล์ที่เล็กกว่า 1MB");
-    e.target.value = "";
-    const copy = [...extraFiles];
-    copy[idx] = null;
-    setExtraFiles(copy);
-    return;
-  }
-  const copy = [...extraFiles];
-  copy[idx] = file;
-  setExtraFiles(copy);
-}}
-/>
+                  <div className="relative">
+  <input
+    ref={(el)=>{ if(el) fileRefs.current[idx] = el; }}
+    type="file"
+    accept="image/*"
+    className={`${inputCls()} pr-20`}
+    onChange={(e) => {
+      const file = e.target.files?.[0] || null;
+      if (file && file.size > 1024 * 1024) {
+        setError("ไฟล์เกิน 1MB กรุณาเลือกไฟล์ที่เล็กกว่า 1MB");
+        e.target.value = "";
+        const copy = [...extraFiles];
+        copy[idx] = null;
+        setExtraFiles(copy);
+        return;
+      }
+      const copy = [...extraFiles];
+      copy[idx] = file;
+      setExtraFiles(copy);
+    }}
+  />
+  {extraFiles[idx] && (
+    <button
+      type="button"
+      onClick={() => {
+        const copy = [...extraFiles];
+        copy[idx] = null;
+        setExtraFiles(copy);
+        if (fileRefs.current[idx]) fileRefs.current[idx].value = "";
+      }}
+      className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-600 text-white text-sm rounded px-2 py-1 hover:bg-red-700"
+    >
+      ลบไฟล์
+    </button>
+  )}
+</div>
                   <select className={inputCls()} value={String(extraOrders[idx])} onChange={(e)=>{ const copy = [...extraOrders]; copy[idx] = Number(e.target.value); setExtraOrders(copy); }}>
                     {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
                   </select>

@@ -451,7 +451,7 @@ export default async function HomePage() {
               {popular.map((s) => (
                 <Link
                   key={s.id}
-                  href={`/store/${s.id}`}
+                  href={`/store/${encodeURIComponent(String(s.id))}`}
                   className={`snap-start w-[280px] shrink-0 overflow-hidden rounded-2xl ${THEME.glass} shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg md:w-[320px]`}
                 >
                   <div className="aspect-[16/9] overflow-hidden">
@@ -496,7 +496,7 @@ export default async function HomePage() {
               {latestStores.map((store) => (
                 <Link
                   key={store.id}
-                  href={`/store/${store.id}`}
+                  href={`/store/${encodeURIComponent(String(store.id))}`}
                   className={`group overflow-hidden rounded-2xl ${THEME.glass} shadow-sm transition hover:shadow-lg md:h-[260px]`}
                 >
                   <div className="flex h-full flex-col md:flex-row">

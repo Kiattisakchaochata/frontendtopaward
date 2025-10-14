@@ -4,7 +4,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Noto_Sans_Thai } from "next/font/google";
 import Script from "next/script";
-import LayoutClientWrapper from "@/components/LayoutClientWrapper"; // ✅ รวม Footer + Provider
+import LayoutClientWrapper from "@/components/LayoutClientWrapper";
 import TrackingInjector from "./_components/TrackingInjector";
 
 /* ------------------------------ Font ------------------------------ */
@@ -47,7 +47,6 @@ async function fetchSeo(): Promise<PublicSiteSeo | null> {
       return null;
     }
     const data = await res.json();
-    console.log("✅ SEO Data fetched from backend:", data);
     return data?.site || null;
   } catch (err) {
     console.error("❌ Fetch SEO failed:", err);
@@ -67,16 +66,15 @@ export async function generateMetadata(): Promise<Metadata> {
     ["รีวิว", "ร้านค้า", "คลินิก", "ที่เที่ยว", "TopAward"];
 
   return {
-    // ✅ ใส่ Google Site Verification ที่นี่ (อย่าประกาศ metadata ซ้ำอีกตัว)
     verification: {
       google: "AmCgvxN8Swf-ZHjQp_bUq9Q8xKoUdnHSRL2WMQ1FKQA",
     },
-
     metadataBase: new URL(SITE_URL),
     title: { default: title, template: `%s | ${APP_NAME}` },
     description: desc,
     applicationName: APP_NAME,
     keywords: kw,
+    // ✅ กลับไปใช้ของเดิม
     alternates: { canonical: "/" },
     manifest: "/favicon/site.webmanifest",
     icons: {
@@ -129,8 +127,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
   const seo = await fetchSeo();
 
-  console.log("🧭 Using SEO in layout:", seo);
-
   const jsonld =
     seo?.jsonld && typeof seo.jsonld === "object"
       ? seo.jsonld
@@ -157,7 +153,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta charSet="utf-8" />
         <meta name="referrer" content="origin-when-cross-origin" />
 
-        {/* ✅ Preconnect / DNS Prefetch */}
+        {/* ✅ Preconnect / DNS Prefetch (แบบของเดิม) */}
         {preconnectHosts.map((h, i) => (
           <link key={`pc-${i}`} rel="preconnect" href={h} crossOrigin="" />
         ))}
@@ -165,9 +161,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <link key={`dns-${i}`} rel="dns-prefetch" href={h} />
         ))}
 
-        {/* ✅ JSON-LD ติดแน่นใน view-source */}
         <JsonLd id="ld-site" data={jsonld} />
-        {/* ✅ JSON-LD ทุกเพจ (แสดงใน view-source แน่นอน) */}
         <AllPagesJsonLd />
       </head>
 
@@ -205,6 +199,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
         {/* ✅ Tracking Scripts จาก Admin */}
         <TrackingInjector />
+
+        {/* ✅ ติด TikTok global (กันปัญหาในหน้าโฮม) */}
+        <Script src="https://www.tiktok.com/embed.js" strategy="afterInteractive" />
 
         {/* ✅ Client Side Layout */}
         <LayoutClientWrapper>{children}</LayoutClientWrapper>
