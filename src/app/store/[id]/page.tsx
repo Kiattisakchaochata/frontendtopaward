@@ -470,7 +470,8 @@ export default async function StoreDetailPage({ params }: PageProps) {
     <>
       {/* Tracking & LD */}
       <TrackingInjector storeId={id} />
-      <Script src="https://www.tiktok.com/embed.js" strategy="afterInteractive" />
+      <TikTokReload storeId={store.id} />
+      
       <Script id="ld-breadcrumb-store" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ldBreadcrumb) }} />
       <Script id="ld-localbusiness-store" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ldLocalBusiness) }} />
 
@@ -688,7 +689,6 @@ const mapEmbed = buildMapsEmbedUrl(mapHref, store.address, store.name);
                   </ul>
                 )}
               </section>
-              <TikTokReload storeId={store.id} />
             </aside>
           </div>
         </div>

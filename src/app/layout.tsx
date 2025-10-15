@@ -6,6 +6,8 @@ import { Noto_Sans_Thai } from "next/font/google";
 import Script from "next/script";
 import LayoutClientWrapper from "@/components/LayoutClientWrapper";
 import TrackingInjector from "./_components/TrackingInjector";
+import TikTokReload from "@/components/TikTokReload";
+
 
 /* ------------------------------ Font ------------------------------ */
 const notoThai = Noto_Sans_Thai({
@@ -201,7 +203,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         <TrackingInjector />
 
         {/* ✅ ติด TikTok global (กันปัญหาในหน้าโฮม) */}
-        <Script src="https://www.tiktok.com/embed.js" strategy="afterInteractive" />
+        
 
         {/* ✅ Client Side Layout */}
         <LayoutClientWrapper>{children}</LayoutClientWrapper>

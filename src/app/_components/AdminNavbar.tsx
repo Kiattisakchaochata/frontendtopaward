@@ -33,7 +33,7 @@ export default function AdminNavbar() {
 
   async function handleLogout() {
     try {
-      await fetch("/api/logout", { method: "POST", credentials: "include" });
+      await fetch("/logout", { method: "POST", credentials: "include" });
     } catch (e) {
       console.error(e);
     } finally {
