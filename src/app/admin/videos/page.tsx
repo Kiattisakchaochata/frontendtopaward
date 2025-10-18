@@ -119,6 +119,16 @@ function displayThumb(youtubeUrl?: string | null, explicit?: string | null) {
   return null;
 }
 
+function cleanPayload<T extends Record<string, any>>(obj: T): Partial<T> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const isEmptyString = typeof v === "string" && v.trim() === "";
+    if (v === undefined || v === null || isEmptyString) continue;
+    out[k] = v;
+  }
+  return out as Partial<T>;
+}
+
 /** ---------- Date range → Full-day with local TZ (+/-HH:MM) ---------- **/
 function localTzOffset(): string {
   const mins = -new Date().getTimezoneOffset();
@@ -257,12 +267,12 @@ export default function AdminVideosPage() {
         fd.append("title", title.trim());
         if (youtube.trim()) fd.append("youtube_url", youtube.trim());
         if (tiktok.trim()) fd.append("tiktok_url", tiktok.trim());
-        fd.append("order_number", String(order === "" ? 0 : Number(order)));
-        fd.append("is_active", String(!!active));
-        if (start) fd.append("start_date", start);
-        if (end) fd.append("end_date", end);
-        if (storeId) fd.append("store_id", storeId);
-        fd.append("thumbnail", thumbFile);
+        if (order !== "") fd.append("order_number", String(Number(order)));
+fd.append("is_active", String(!!active));
+if (start) fd.append("start_date", start);
+if (end) fd.append("end_date", end);
+if (storeId) fd.append("store_id", storeId);
+fd.append("thumbnail", thumbFile);
 
         res = await fetch(API_FRONT, {
           method: "POST",
@@ -270,26 +280,29 @@ export default function AdminVideosPage() {
           credentials: "include",
         });
       } else {
-        const payload: any = {
-          title: title.trim(),
-          youtube_url: youtube.trim() || null,
-          tiktok_url: tiktok.trim() || null,
-          thumbnail_url:
-  (isValidHttpUrl(thumb.trim()) ? thumb.trim() : null) ||
-  (youtube.trim() ? buildDefaultThumb(youtube.trim()) : null),
-          order_number: order === "" ? 0 : Number(order),
-          is_active: !!active,
-          start_date: startIso || null,
-          end_date: endIso || null,
-          store_id: storeId || null,
-        };
-        res = await fetch(API_FRONT, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          credentials: "include",
-        });
-      }
+  const base: any = {
+    title: title.trim(),
+    youtube_url: youtube.trim(),
+    tiktok_url: tiktok.trim(),
+    // ส่งเฉพาะเมื่อเป็น URL จริง ๆ เท่านั้น
+    thumbnail_url: isValidHttpUrl(thumb.trim()) ? thumb.trim() : undefined,
+    order_number: order === "" ? undefined : Number(order),
+    is_active: !!active,
+    // ส่งเฉพาะถ้ามีกรอก
+    start_date: start || undefined,
+    end_date: end || undefined,
+    store_id: storeId || undefined,
+  };
+
+  const payload = cleanPayload(base);
+
+  res = await fetch(API_FRONT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    credentials: "include",
+  });
+}
 
       if (!res.ok) {
         const msg = await res.text();
@@ -368,36 +381,34 @@ export default function AdminVideosPage() {
     }
 
     try {
-      const { startIso, endIso } = toFullDayRange(vals.start_date, vals.end_date);
+      const base: any = {
+  title: vals.title.trim(),
+  youtube_url: vals.youtube_url.trim(),
+  tiktok_url: (vals.tiktok_url || "").trim(),
+  thumbnail_url: isValidHttpUrl((vals.thumbnail_url || "").trim())
+    ? (vals.thumbnail_url || "").trim()
+    : undefined,
+  is_active: !!vals.is_active,
+  start_date: vals.start_date || undefined,
+  end_date: vals.end_date || undefined,
+  store_id: vals.store_id || undefined,
+  order_number: vals.order_number === "" ? undefined : Number(vals.order_number),
+};
 
-      const payload: any = {
-        title: vals.title.trim(),
-        youtube_url: vals.youtube_url.trim() || null,
-        tiktok_url: (vals.tiktok_url || "").trim() || null,
-        thumbnail_url:
-  (isValidHttpUrl((vals.thumbnail_url || "").trim()) ? (vals.thumbnail_url || "").trim() : null) ||
-  (vals.youtube_url.trim() ? buildDefaultThumb(vals.youtube_url.trim()) : null),
-        is_active: !!vals.is_active,
-        start_date: startIso,
-        end_date: endIso,
-        store_id: vals.store_id || null,
-      };
+const payload = cleanPayload(base);
 
       let res: Response;
       if (editThumbFile) {
         const fd = new FormData();
-        fd.append("title", payload.title);
-        if (payload.youtube_url) fd.append("youtube_url", payload.youtube_url);
-        if (payload.tiktok_url) fd.append("tiktok_url", payload.tiktok_url);
-        fd.append(
-          "order_number",
-          String(vals.order_number === "" ? 0 : Number(vals.order_number))
-        );
-        fd.append("is_active", String(!!vals.is_active));
-        if (vals.start_date) fd.append("start_date", vals.start_date);
-        if (vals.end_date) fd.append("end_date", vals.end_date);
-        if (vals.store_id) fd.append("store_id", vals.store_id);
-        fd.append("thumbnail", editThumbFile);
+fd.append("title", String(payload.title));
+if (payload.youtube_url) fd.append("youtube_url", String(payload.youtube_url));
+if (payload.tiktok_url) fd.append("tiktok_url", String(payload.tiktok_url));
+if (payload.order_number !== undefined) fd.append("order_number", String(payload.order_number));
+fd.append("is_active", String(!!payload.is_active));
+if (vals.start_date) fd.append("start_date", vals.start_date);
+if (vals.end_date) fd.append("end_date", vals.end_date);
+if (payload.store_id) fd.append("store_id", String(payload.store_id));
+fd.append("thumbnail", editThumbFile);
 
         res = await fetch(`${API_FRONT}/${encodeURIComponent(editId)}`, {
           method: "PATCH",

@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import Link from "next/link";
+import LoginWithGoogle from "@/components/auth/LoginWithGoogle";
 
 /* ====== ENV / CONST ====== */
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8899/api";
@@ -10,6 +11,8 @@ const AUTH_COOKIE =
   process.env.AUTH_COOKIE_NAME ||
   process.env.NEXT_PUBLIC_AUTH_COOKIE ||
   "token";
+
+/* ---------------- helpers ---------------- */
 function deepFind<T = any>(
   obj: any,
   pick: (k: string, v: any) => T | undefined
@@ -25,15 +28,14 @@ function deepFind<T = any>(
   }
 }
 
-function deepFindToken(obj: any): string | undefined {
-  return deepFind<string>(obj, (k, v) =>
-    typeof v === "string" && /token|jwt|access[_-]?token/i.test(k) && v
-      ? v
-      : undefined
+const deepFindToken = (o: any) =>
+  deepFind<string>(o, (k, v) =>
+    typeof v === "string" && /token|jwt|access[_-]?token/i.test(k) ? v : undefined
   );
-}
-/* ---------- error helpers (เพิ่มใหม่) ---------- */
-const stripHtml = (s: string) => String(s || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+const stripHtml = (s: string) =>
+  String(s || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
 function firstValidationError(data: any): string | undefined {
   if (!data) return;
   if (Array.isArray(data?.errors)) {
@@ -45,6 +47,7 @@ function firstValidationError(data: any): string | undefined {
     if (Array.isArray(first) && first[0]) return String(first[0]);
   }
 }
+
 function friendlyError(status: number, data: any, rawText: string) {
   const backend =
     data?.message ||
@@ -55,9 +58,8 @@ function friendlyError(status: number, data: any, rawText: string) {
     "";
   const msg = stripHtml(backend);
   const lower = msg.toLowerCase();
-  if (lower.includes("invalid") || lower.includes("incorrect") || lower.includes("wrong")) {
+  if (lower.includes("invalid") || lower.includes("incorrect") || lower.includes("wrong"))
     return "อีเมล/ชื่อผู้ใช้ หรือรหัสผ่านไม่ถูกต้อง";
-  }
   if (lower.includes("not found")) return "ไม่พบบัญชีผู้ใช้ หรือข้อมูลไม่ถูกต้อง";
 
   switch (status) {
@@ -88,12 +90,10 @@ async function login(formData: FormData) {
     redirect("/login?error=" + encodeURIComponent("กรุณากรอกข้อมูลให้ครบ"));
   }
 
-  const payload =
-    ident.includes("@")
-      ? { email: ident, password }
-      : { username: ident, password };
+  const payload = ident.includes("@")
+    ? { email: ident, password }
+    : { username: ident, password };
 
-  // หมายเหตุ: ถ้าต้องการผ่าน proxy ให้เปลี่ยน URL เป็น `${process.env.NEXT_PUBLIC_SITE_URL}/api/login`
   const res = await fetch(`${API_URL}${LOGIN_PATH}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -110,27 +110,25 @@ async function login(formData: FormData) {
     redirect("/login?error=" + encodeURIComponent(msg));
   }
 
-  // ----- ดึง token จาก response body หรือ Set-Cookie -----
-let token: string | undefined =
-  data?.token ||
-  data?.access_token ||
-  data?.accessToken ||
-  data?.jwt ||
-  data?.data?.token ||
-  data?.data?.access_token ||
-  data?.user?.token ||
-  data?.user?.access_token ||
-  deepFindToken(data);
+  let token: string | undefined =
+    data?.token ||
+    data?.access_token ||
+    data?.accessToken ||
+    data?.jwt ||
+    data?.data?.token ||
+    data?.data?.access_token ||
+    data?.user?.token ||
+    data?.user?.access_token ||
+    deepFindToken(data);
 
-if (!token) {
-  const setCookie = res.headers.get("set-cookie") || "";
-  const m = setCookie.match(new RegExp(`${AUTH_COOKIE}=([^;]+)`));
-  if (m && m[1]) token = m[1];
-}
-
-if (!token) {
-  redirect("/login?error=" + encodeURIComponent("ไม่พบโทเค็นจากเซิร์ฟเวอร์"));
-}
+  if (!token) {
+    const setCookie = res.headers.get("set-cookie") || "";
+    const m = setCookie.match(new RegExp(`${AUTH_COOKIE}=([^;]+)`));
+    if (m?.[1]) token = m[1];
+  }
+  if (!token) {
+    redirect("/login?error=" + encodeURIComponent("ไม่พบโทเค็นจากเซิร์ฟเวอร์"));
+  }
 
   const jar = await cookies();
   jar.set(AUTH_COOKIE, token, {
@@ -141,40 +139,18 @@ if (!token) {
     maxAge: 60 * 60 * 24 * 7,
   });
 
-  // role (คง helper เดิมของคุณไว้)
-  function deepFind<T = any>(obj: any, pick: (k: string, v: any) => T | undefined): T | undefined {
-    if (!obj || typeof obj !== "object") return;
-    for (const [k, v] of Object.entries(obj)) {
-      const got = pick(k, v);
-      if (got !== undefined) return got;
-      if (v && typeof v === "object") {
-        const child = deepFind(v, pick);
-        if (child !== undefined) return child;
-      }
-    }
-  }
-  function deepFindRole(obj: any): string | undefined {
-    return deepFind<string>(obj, (k, v) => (k.toLowerCase() === "role" && typeof v === "string" ? v : undefined));
-  }
-  function parseJwtRole(token?: string): string | undefined {
-    if (!token) return;
+  // แยก role จาก JWT (หรือ /auth/me ภายหลังฝั่ง client ก็ได้)
+  function parseJwtRole(t?: string) {
+    if (!t) return;
     try {
-      const [, payload] = token.split(".");
+      const [, payload] = t.split(".");
       if (!payload) return;
       const json = JSON.parse(Buffer.from(payload, "base64").toString("utf8"));
       return json?.role || json?.user?.role || json?.data?.user?.role;
     } catch { return; }
   }
 
-  let role =
-    parseJwtRole(token) ||
-    data?.role ||
-    data?.user?.role ||
-    data?.data?.user?.role ||
-    deepFindRole(data) ||
-    "user";
-
-  role = String(role).toLowerCase();
+  const role = String(parseJwtRole(token) || "user").toLowerCase();
   redirect(role === "admin" ? "/admin" : "/");
 }
 
@@ -182,9 +158,9 @@ if (!token) {
 type SearchParamsInput =
   | Promise<Record<string, string | string[] | undefined>>
   | Record<string, string | string[] | undefined>;
-function pickFirst(v?: string | string[]) { return Array.isArray(v) ? v[0] : v ?? ""; }
+const pickFirst = (v?: string | string[]) => (Array.isArray(v) ? v[0] : v ?? "");
 
-export default async function LoginPage({ searchParams }: { searchParams: SearchParamsInput; }) {
+export default async function LoginPage({ searchParams }: { searchParams: SearchParamsInput }) {
   const sp =
     typeof (searchParams as any)?.then === "function"
       ? await (searchParams as Promise<Record<string, string | string[] | undefined>>)
@@ -206,7 +182,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
           </p>
         ) : null}
 
-        {/* … ฟอร์มเดิมทั้งหมดของคุณ … */}
+        {/* ฟอร์ม username/email + password */}
         <label className="mb-1 block text-sm font-medium text-gray-200">อีเมลหรือชื่อผู้ใช้</label>
         <input
           name="identifier"
@@ -218,6 +194,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
                      placeholder:text-gray-400 shadow-sm focus:border-[#FFD700] focus:outline-none
                      focus:ring-2 focus:ring-[#FFD700]/40"
         />
+
         <label className="mb-1 block text-sm font-medium text-gray-200">รหัสผ่าน</label>
         <input
           name="password"
@@ -229,19 +206,31 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
                      placeholder:text-gray-400 shadow-sm focus:border-[#FFD700] focus:outline-none
                      focus:ring-2 focus:ring-[#FFD700]/40"
         />
-        <button className="w-full rounded-lg px-4 py-3 text-sm font-semibold text-black bg-gradient-to-r from-[#FFD700] to-[#B8860B] hover:from-[#FFCC33] hover:to-[#FFD700] shadow-md transition">
+
+        <button className="w-full rounded-lg px-4 py-3 text-sm font-semibold text-black
+                           bg-gradient-to-r from-[#FFD700] to-[#B8860B]
+                           hover:from-[#FFCC33] hover:to-[#FFD700] shadow-md transition">
           เข้าสู่ระบบ
         </button>
+
+        {/* ปุ่ม Google (Client Component) */}
+        <div className="mt-4">
+          <LoginWithGoogle />
+        </div>
+
         <Link
           href="/"
-          className="mt-3 block w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-center
+          className="mt-3 block w-full rounded-lg px-4 py-2.5 text-center text-sm font-semibold
                      text-[#FFD700] border border-[#FFD700]/40 hover:bg-[#FFD700]/10 transition"
         >
           กลับหน้าหลัก
         </Link>
+
         <p className="mt-6 text-center text-sm text-gray-300">
           ยังไม่มีบัญชี?{" "}
-          <Link href="/register" className="font-semibold text-[#FFD700] hover:underline">สร้างบัญชี</Link>
+          <Link href="/register" className="font-semibold text-[#FFD700] hover:underline">
+            สร้างบัญชี
+          </Link>
         </p>
       </form>
     </div>
