@@ -6,9 +6,8 @@ import { Noto_Sans_Thai } from "next/font/google";
 import Script from "next/script";
 import LayoutClientWrapper from "@/components/LayoutClientWrapper";
 // import TrackingInjector from "./_components/TrackingInjector"; // STEP 3: ปิดชั่วคราว กันสคริปต์อื่นฉีด GSI เข้ามา
-import TikTokReload from "@/components/TikTokReload";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import './globals.css';
+
 
 /* ------------------------------ Font ------------------------------ */
 const notoThai = Noto_Sans_Thai({
@@ -18,7 +17,8 @@ const notoThai = Noto_Sans_Thai({
 });
 
 /* ----------------------------- Constants ----------------------------- */
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "");
+// ✅ ใช้โฮสต์ canonical ให้ตรงกับที่ตั้งใจ (แนะนำ www)
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.10topawards.com").replace(/\/$/, "");
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 const APP_NAME = "TopAward";
 const APP_DESC = "รวมรีวิวร้าน/คลินิก/ที่เที่ยว พร้อมรูปภาพและเรตติ้ง จัดหมวดหมู่และค้นหาง่าย";
@@ -83,14 +83,15 @@ export async function generateMetadata(): Promise<Metadata> {
      // ✅ เปลี่ยนให้ชี้ไฟล์ที่ "ราก"
     manifest: "/site.webmanifest",
     icons: {
-      icon: [
-        { url: "/favicon.ico" },
-        { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-        { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      ],
-      apple: { url: "/apple-touch-icon.png", sizes: "180x180" },
-      shortcut: "/favicon.ico",
-    },
+  // ✅ ใส่ absolute URL ชัดเจน เพื่อให้ Googlebot หยิบจากโฮสต์ canonical ตรง ๆ
+  icon: [
+    { url: `${SITE_URL}/favicon.ico` },
+    { url: `${SITE_URL}/favicon-32x32.png`, sizes: "32x32", type: "image/png" },
+    { url: `${SITE_URL}/favicon-16x16.png`, sizes: "16x16", type: "image/png" },
+  ],
+  apple: { url: `${SITE_URL}/apple-touch-icon.png`, sizes: "180x180" },
+  shortcut: `${SITE_URL}/favicon.ico`,
+},
 
     openGraph: {
       type: "website",
@@ -154,6 +155,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
   <meta charSet="utf-8" />
   <meta name="referrer" content="no-referrer" />
+    {/* ✅ บอกทางตรง ๆ ด้วย absolute URL (ช่วย Googlebot, กัน cache แปลก ๆ) */}
+  <link rel="icon" href={`${SITE_URL}/favicon.ico`} sizes="any" />
+  <link rel="icon" type="image/png" href={`${SITE_URL}/favicon-32x32.png`} sizes="32x32" />
+  <link rel="apple-touch-icon" href={`${SITE_URL}/apple-touch-icon.png`} />
   {preconnectHosts.map((h, i) => (
     <link key={`pc-${i}`} rel="preconnect" href={h} crossOrigin="" />
   ))}
