@@ -111,12 +111,17 @@ function isValidHttpUrl(s?: string | null): boolean {
 }
 
 function displayThumb(youtubeUrl?: string | null, explicit?: string | null) {
-  // ใช้ explicit เฉพาะเมื่อเป็น URL ที่ valid จริงๆ
   if (explicit && isValidHttpUrl(explicit)) return explicit;
-
-  // ไม่งั้น fallback เป็นรูปจาก YouTube ถ้าแกะ id ได้
   if (youtubeUrl) return buildDefaultThumb(youtubeUrl);
   return null;
+}
+
+// ✅ alias กันพลาดชื่อ
+const displayThumbUrl = displayThumb;
+/* ✅ เพิ่มฟังก์ชัน proxifyImage ตรงนี้เลย */
+function proxifyImage(u: string | null | undefined) {
+  if (!u) return null;
+  return `/api/proxy/image?u=${encodeURIComponent(u)}`;
 }
 
 function cleanPayload<T extends Record<string, any>>(obj: T): Partial<T> {
@@ -146,6 +151,7 @@ function toFullDayRange(start?: string, end?: string) {
 }
 
 export default function AdminVideosPage() {
+  console.log('[ADMIN VIDEOS] using APP router build v1');
   const { confirm } = useConfirm();
 
   const [rows, setRows] = useState<Video[]>([]);
@@ -693,7 +699,7 @@ fd.append("thumbnail", editThumbFile);
         {/* List */}
         <div className={`${cardGlass} p-6 md:p-7 mt-8`}>
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <h2 className="text-lg font-semibold">รายการวิดีโอ</h2>
+            <h2 className="text-lg font-semibold">รายการวิดีโอ (v1)</h2>
             <div className="flex items-center gap-2">
               <input
                 placeholder="ค้นหาชื่อ/ลิงก์…"
@@ -723,16 +729,18 @@ fd.append("thumbnail", editThumbFile);
                   className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 p-3 hover:bg-white/[0.07]"
                 >
                   {(() => {
-                    const listThumb = displayThumb(v.youtube_url, v.thumbnail_url || null);
-                    return (
-                      <div className="h-16 w-28 shrink-0 overflow-hidden rounded bg-black/30 ring-1 ring-white/10">
+  const rawThumb = displayThumbUrl(v.youtube_url, v.thumbnail_url || null);
+const listThumb = proxifyImage(rawThumb); // ✅ ครอบด้วย proxy
+console.log('[LIST]', v.title, { youtube: v.youtube_url, thumb: v.thumbnail_url, used: listThumb });
+return (
+  <div className="h-16 w-28 ... shrink-0 overflow-hidden rounded bg-black/30 ring-1 ring-white/10">
                         {listThumb ? (
                           <img
-                            src={listThumb}
-                            alt={v.title}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
+  src={listThumb || ''}
+  alt={v.title}
+  className="h-full w-full object-cover"
+  loading="lazy"
+/>
                         ) : (
                           <div className="grid h-full w-full place-items-center text-xs text-slate-400">
                             ไม่มีรูป
@@ -928,16 +936,17 @@ fd.append("thumbnail", editThumbFile);
                   {/* พรีวิว: ไฟล์ใหม่ > URL เดิม > Fallback (YouTube) */}
                   <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-black/20">
                     {(() => {
-                      const fallback = displayThumb(vals.youtube_url, vals.thumbnail_url || null);
-                      const src = editThumbPreview || fallback;
-                      return src ? (
-                        <img src={src} alt="preview" className="h-40 w-full object-cover" />
-                      ) : (
-                        <div className="h-40 grid place-items-center text-xs text-slate-400">
-                          ไม่มีรูปตัวอย่าง
-                        </div>
-                      );
-                    })()}
+  const fallback = displayThumbUrl(vals.youtube_url, vals.thumbnail_url || null);
+const src = editThumbPreview || proxifyImage(fallback); // ✅ ครอบด้วย proxy
+console.log('[EDIT PREVIEW]', { youtube: vals.youtube_url, thumb: vals.thumbnail_url, filePreview: !!editThumbPreview, used: src });
+return src ? (
+  <img src={src} alt="preview" className="h-40 w-full object-cover" />
+  ) : (
+    <div className="h-40 grid place-items-center text-xs text-slate-400">
+      ไม่มีรูปตัวอย่าง
+    </div>
+  );
+})()}
                   </div>
 
                   {(editThumbPreview || vals.thumbnail_url) && (

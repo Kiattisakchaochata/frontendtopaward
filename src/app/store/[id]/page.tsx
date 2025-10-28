@@ -110,7 +110,8 @@ function ytId(url: string): string | null {
 }
 function tkEmbedUrl(input: string): string | null {
   const id = tkId(input);
-  return id ? `https://www.tiktok.com/embed/v2/video/${id}` : null;
+  // ✅ รูปแบบ v2 ที่ถูกต้อง: https://www.tiktok.com/embed/v2/<video_id>
+  return id ? `https://www.tiktok.com/embed/v2/${id}` : null;
 }
 function normalizeActive(v: Store["is_active"]): boolean {
   if (typeof v === "boolean") return v;
@@ -670,20 +671,33 @@ const mapEmbed = buildMapsEmbedUrl(mapHref, store.address, store.name);
                         );
                       }
                       if (v.tiktok_url) {
-                        const id = tkId(v.tiktok_url);
-                        return (
-                          <li key={`tk-${v.id}`} className="overflow-hidden rounded-xl ring-1 ring-white/10 bg-black/20">
-                            <div className="aspect-[9/16] w-full">
-                              <blockquote className="tiktok-embed h-full w-full" cite={v.tiktok_url} data-video-id={id || undefined}>
-                                <section>
-                                  <a href={v.tiktok_url}>Watch on TikTok</a>
-                                </section>
-                              </blockquote>
-                            </div>
-                            {v.title && <div className="p-3 text-xs text-white/85 line-clamp-2">{v.title}</div>}
-                          </li>
-                        );
-                      }
+  // ใช้ URL ที่คำนวณไว้แล้วจาก getStoreVideos()
+  const src = (v.tiktok_embed_url || tkEmbedUrl(v.tiktok_url)) ?? null;
+  if (!src) {
+    return (
+      <li key={`tk-${v.id}`} className="rounded-xl ring-1 ring-white/10 bg-black/20 p-3 text-sm text-slate-300">
+        ไม่สามารถฝังวิดีโอ TikTok ได้: ลิงก์นี้ไม่ใช่วิดีโอ หรือเป็นลิงก์สั้น vt.tiktok.com
+      </li>
+    );
+  }
+  return (
+    <li key={`tk-${v.id}`} className="overflow-hidden rounded-xl ring-1 ring-white/10 bg-black/20">
+      <div className="relative aspect-[9/16] w-full">
+        <iframe
+          src={`${src}?autoplay=0&muted=1`}
+          className="absolute inset-0 h-full w-full"
+          title={v.title || "TikTok video"}
+          loading="lazy"
+          // ✅ ทำงานได้แม้มี CSP เข้มงวด และไม่ต้องโหลด embed.js
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+          allowFullScreen
+          referrerPolicy="origin-when-cross-origin"
+        />
+      </div>
+      {v.title && <div className="p-3 text-xs text-white/85 line-clamp-2">{v.title}</div>}
+    </li>
+  );
+}
                       return null;
                     })}
                   </ul>

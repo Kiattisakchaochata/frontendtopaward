@@ -2,7 +2,7 @@
 import { Html, Head, Main, NextScript } from 'next/document';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-const BRAND    = process.env.NEXT_PUBLIC_BRAND_NAME || 'Topaward';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'Topaward';
 
 export default function Document() {
   const website = {
@@ -22,7 +22,7 @@ export default function Document() {
     <Html lang="th">
       <Head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* ❌ ลบ meta viewport ออก */}
         {/* ✅ JSON-LD แบบ SSR เห็นใน view-source แน่นอน */}
         <script
           type="application/ld+json"

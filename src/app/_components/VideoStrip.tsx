@@ -17,6 +17,7 @@ type Props = {
   gap?: number;         // default 16
 };
 
+/* ---------------- Helpers ---------------- */
 function extractYouTubeId(url = ""): string | null {
   try {
     const u = new URL(url);
@@ -43,16 +44,9 @@ function extractTikTokVideoId(url = ""): string | null {
 
 function toTikTokEmbed(url = ""): string | null {
   const id = extractTikTokVideoId(url);
-  return id ? `https://www.tiktok.com/embed/v2/${id}` : null;  // ✅ ใช้ v2
+  return id ? `https://www.tiktok.com/embed/v2/${id}` : null;
 }
 
-function displayThumb(youtubeUrl?: string | null, explicit?: string | null) {
-  if (explicit) return explicit;
-  const id = youtubeUrl ? extractYouTubeId(youtubeUrl) : null;
-  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
-}
-
-/** ดึง YouTube ID: รองรับ v=, youtu.be, /shorts/:id */
 function getYoutubeId(url: string) {
   try {
     const u = new URL(url);
@@ -70,7 +64,6 @@ function withParams(u: string, params: Record<string, string | number | boolean>
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
     return url.toString();
   } catch {
-    // กรณีเป็น path ที่ไม่ได้รูปแบบ URL เต็ม
     const join = u.includes("?") ? "&" : "?";
     const qs = Object.entries(params)
       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
@@ -79,6 +72,7 @@ function withParams(u: string, params: Record<string, string | number | boolean>
   }
 }
 
+/* ---------------- Component ---------------- */
 export default function VideoStrip({
   videos = [],
   cardWidth = 360,
@@ -88,15 +82,20 @@ export default function VideoStrip({
   if (!videos || videos.length === 0) return null;
 
   const base = useMemo(
-  () =>
-    videos.map((v) => {
-      const id  = getYoutubeId(v.youtube_url || "");
-      const tik = toTikTokEmbed(v.tiktok_url || "");   // ✅ แปลงเป็น /embed/{id}
-      const fallback = id ? `https://i.ytimg.com/vi/${id}/mqdefault.jpg` : undefined;
-      return { ...v, _thumb: v.thumbnail_url || fallback, _ytid: id || null, _tiktok: tik || null };
-    }),
-  [videos]
-);
+    () =>
+      videos.map((v) => {
+        const id = getYoutubeId(v.youtube_url || "");
+        const tik = toTikTokEmbed(v.tiktok_url || "");
+        const fallback = id ? `https://i.ytimg.com/vi/${id}/mqdefault.jpg` : undefined;
+        return {
+          ...v,
+          _thumb: v.thumbnail_url || fallback,
+          _ytid: id || null,
+          _tiktok: tik || null,
+        };
+      }),
+    [videos]
+  );
 
   const loop = useMemo(() => [...base, ...base], [base]);
 
@@ -106,14 +105,16 @@ export default function VideoStrip({
   const xRef = useRef(0);
   const hoverRef = useRef(false);
   const dragActiveRef = useRef(false);
-  const downOnCardRef = useRef(false);
   const justDraggedRef = useRef(false);
 
   const [active, setActive] = useState(0);
   const [playerNonce, setPlayerNonce] = useState(0);
   const [openVideo, setOpenVideo] = useState<any | null>(null);
 
-  // แคชครึ่งความกว้างเทป
+  // 🔸 แสดงปุ่มเมื่อ iframe โหลดเสร็จ
+  const [iframeReady, setIframeReady] = useState(false);
+
+  // คำนวณครึ่งความกว้างของเทป (ไว้ทำ loop)
   const [half, setHalf] = useState(0);
   useEffect(() => {
     const track = trackRef.current;
@@ -124,7 +125,7 @@ export default function VideoStrip({
     return () => ro.disconnect();
   }, [loop.length]);
 
-  /** ===== Auto-scroll ด้วย RAF ===== */
+  /** Auto-scroll by rAF */
   useEffect(() => {
     const track = trackRef.current;
     if (!track || half === 0) return;
@@ -137,7 +138,7 @@ export default function VideoStrip({
       raf = requestAnimationFrame(tick);
 
       if (hoverRef.current || dragActiveRef.current) {
-        last = t; // freeze
+        last = t;
       } else {
         const dt = (t - last) / 1000;
         last = t;
@@ -149,7 +150,6 @@ export default function VideoStrip({
         track.style.transform = `translate3d(${xRef.current}px,0,0)`;
       }
 
-      // update dots
       const pos = ((-xRef.current % half) + half) % half;
       const idx = Math.round(pos / cardSpan) % base.length;
       if (idx !== active) setActive(idx);
@@ -159,15 +159,14 @@ export default function VideoStrip({
     return () => cancelAnimationFrame(raf);
   }, [base.length, cardWidth, gap, speedSec, active, half]);
 
-  /** ===== Drag ===== */
-  /** ===== Drag ===== */
-useEffect(() => {
-  if (openVideo) return; // ⬅️ เปิด modal แล้ว ไม่ต้องผูก handler
+  /** Drag */
+  useEffect(() => {
+    if (openVideo) return;
 
-  const track = trackRef.current;
-  const wrap = wrapRef.current;
-  if (!track || !wrap) return;
-  const CLICK_DRAG_THRESHOLD = 8;
+    const track = trackRef.current;
+    const wrap = wrapRef.current;
+    if (!track || !wrap) return;
+    const CLICK_DRAG_THRESHOLD = 8;
 
     let startX = 0;
     let startPos = 0;
@@ -183,7 +182,6 @@ useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
       dragActiveRef.current = true;
       hoverRef.current = true;
-      justDraggedRef.current = false;
       moved = 0;
       startX = e.clientX;
       startPos = xRef.current;
@@ -199,15 +197,15 @@ useEffect(() => {
     };
 
     const endDrag = (e?: PointerEvent) => {
-  if (!dragActiveRef.current) return;
-  dragActiveRef.current = false;
-  hoverRef.current = false;
-  if (moved > CLICK_DRAG_THRESHOLD) {
-    justDraggedRef.current = true;
-    setTimeout(() => (justDraggedRef.current = false), 120);
-  }
-  if (e) (e.target as Element).releasePointerCapture?.(e.pointerId);
-};
+      if (!dragActiveRef.current) return;
+      dragActiveRef.current = false;
+      hoverRef.current = false;
+      if (moved > CLICK_DRAG_THRESHOLD) {
+        justDraggedRef.current = true;
+        setTimeout(() => (justDraggedRef.current = false), 120);
+      }
+      if (e) (e.target as Element).releasePointerCapture?.(e.pointerId);
+    };
 
     wrap.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("pointermove", onPointerMove);
@@ -221,21 +219,14 @@ useEffect(() => {
       window.removeEventListener("pointercancel", endDrag);
     };
   }, [half, openVideo]);
+
+  /** Wheel */
   useEffect(() => {
-  const onKey = (e: KeyboardEvent) => {
-    if (e.key === "Escape") closePlayer();
-  };
-  window.addEventListener("keydown", onKey);
-  return () => window.removeEventListener("keydown", onKey);
-}, []);
+    if (openVideo) return;
 
-  /** ===== Wheel (throttle ด้วย rAF) ===== */
-useEffect(() => {
-  if (openVideo) return; // ⬅️ เปิด modal แล้ว ไม่ต้องผูก handler
-
-  const wrap = wrapRef.current;
-  const track = trackRef.current;
-  if (!wrap || !track) return;
+    const wrap = wrapRef.current;
+    const track = trackRef.current;
+    if (!wrap || !track) return;
 
     let wheelRaf = 0;
     let lastDelta = 0;
@@ -265,47 +256,59 @@ useEffect(() => {
     };
   }, [half, openVideo]);
 
-  /** เปิด/ปิด Player */
+  /** Open / Close player */
   const openPlayer = (v: any) => {
-  if (justDraggedRef.current) return;
-  if (!v?._ytid && !v?._tiktok) return;
-  hoverRef.current = true;
-  setPlayerNonce(n => n + 1);   // ← เพิ่มบรรทัดนี้
-  setOpenVideo(v);
-};
+    if (justDraggedRef.current) return;
+    if (!v?._ytid && !v?._tiktok) return;
+    hoverRef.current = true;
+    setPlayerNonce((n) => n + 1); // force re-mount tiktok iframe
+    setIframeReady(false);        // 🔸 รอโหลดใหม่ทุกครั้ง
+    setOpenVideo(v);
+  };
   const closePlayer = () => {
     setOpenVideo(null);
     hoverRef.current = false;
   };
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closePlayer();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  /* ---------------- Render ---------------- */
   return (
     <div
-      ref={wrapRef}
-      className="relative mt-12 overflow-hidden rounded-2xl select-none"
-      style={{ touchAction: "none" }}
-      onPointerEnter={() => (hoverRef.current = true)}
-      onPointerLeave={() => (hoverRef.current = false)}
-    >
-      {/* Heading */}
+  ref={wrapRef}
+  className="relative mt-12 overflow-hidden rounded-2xl select-none
+             touch-pan-y overscroll-y-contain"  /* ✅ เพิ่มสองคลาสนี้ */
+  style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" }} /* ✅ เปลี่ยนจาก none */
+  onPointerEnter={() => (hoverRef.current = true)}
+  onPointerLeave={() => (hoverRef.current = false)}
+>
       <h2 className="mb-6 text-2xl font-extrabold lg:text-3xl">วิดีโอ</h2>
 
-      {/* fade edges */}
-<div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-[#0F172A] to-transparent opacity-40 z-0" />
-<div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-[#0F172A] to-transparent opacity-40 z-0" />
+      {/* fades */}
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-[#0F172A] to-transparent opacity-40 z-0" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-[#0F172A] to-transparent opacity-40 z-0" />
 
-{/* track */}
-<div
-  ref={trackRef}
-  className="relative z-10 flex py-3 will-change-transform cursor-grab active:cursor-grabbing"
-  style={{ width: "max-content", contain: "content" }}
->
+      {/* track */}
+      <div
+        ref={trackRef}
+        className="relative z-10 flex py-3 will-change-transform cursor-grab active:cursor-grabbing"
+        style={{ width: "max-content", contain: "content" }}
+      >
         {loop.map((v, i) => (
           <button
   type="button"
   data-card="1"
   key={`${v.id}-${i}`}
   onClick={() => openPlayer(v)}
-  className="relative aspect-[16/9] shrink-0 overflow-hidden rounded-2xl
+  className="relative aspect-[9/16] sm:aspect-[9/16] md:aspect-video
+             max-h-[68vh] md:max-h-[520px]  /* ✅ เพิ่มสองคลาสนี้ */
+             shrink-0 overflow-hidden rounded-2xl
              bg-white text-black shadow-[0_8px_30px_rgba(0,0,0,.25)]
              ring-1 ring-white/10 hover:ring-amber-400/40
              transition hover:-translate-y-0.5 focus:outline-none cursor-pointer"
@@ -318,6 +321,7 @@ useEffect(() => {
                 className="h-full w-full object-cover"
                 loading="lazy"
                 draggable={false}
+                referrerPolicy="no-referrer"
               />
             ) : (
               <div className="grid h-full w-full place-items-center bg-gray-200 text-sm text-gray-500">
@@ -327,11 +331,11 @@ useEffect(() => {
 
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
-            {/* ป้ายชื่อ */}
+            {/* title chip */}
             <div className="absolute inset-x-3 bottom-3">
               <div className="group/title relative overflow-hidden rounded-xl bg-white/10 backdrop-blur-md ring-1 ring-white/20 shadow-sm transition">
                 <div className="flex items-center gap-2 px-3 py-2">
-                  <span className="grid h-6 w-6 place-items-center rounded-md bg-amber-400/90 text-black shadow hover:scale-105 transition">
+                  <span className="grid h-6 w-6 place-items-center rounded-md bg-amber-400/90 text-black shadow">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                       <path d="M8 5v14l11-7z" />
                     </svg>
@@ -350,76 +354,103 @@ useEffect(() => {
         ))}
       </div>
 
-      {/* Dots */}
+      {/* dots */}
       <div className="mt-4 flex items-center justify-center gap-2">
         {base.map((_, i) => (
           <span
             key={i}
-            className={`h-1.5 rounded-full transition-all ${i === active ? "w-6 bg-amber-400" : "w-2.5 bg-white/40"}`}
+            className={`h-1.5 rounded-full transition-all ${
+              i === active ? "w-6 bg-amber-400" : "w-2.5 bg-white/40"
+            }`}
           />
         ))}
       </div>
 
-      {/* Modal */}
-{openVideo && (
-  <div
-    className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4"
-    onPointerDown={(e) => e.stopPropagation()}
-    onWheel={(e) => e.stopPropagation()}
-  >
-    <div
-  className="relative z-10 w-full max-w-4xl"
-  onPointerDown={(e) => e.stopPropagation()}
-  onPointerMove={(e) => e.stopPropagation()}
-  onPointerUp={(e) => e.stopPropagation()}
->
-      <div className="aspect-video w-full overflow-hidden rounded-xl bg-black transition-opacity duration-300 opacity-100">
-        {openVideo._ytid ? (
-          <iframe
-            key={`yt-${openVideo._ytid}`}
-            src={`https://www.youtube.com/embed/${openVideo._ytid}?autoplay=1&rel=0`}
-            className="h-full w-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-          />
-        ) : (
-          <iframe
-  key={`tk-${openVideo._tiktok}-${playerNonce}`}  // ← ดูข้อ 2 ด้านล่าง
-  src={withParams(openVideo._tiktok!, { autoplay: 1, muted: 1 })} // ← ใส่ muted=1 ด้วย
-  className="h-full w-full"
-  allow="autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-  allowFullScreen
-  playsInline
-  referrerPolicy="origin-when-cross-origin"
-/>
-        )}
-      </div>
+      {/* modal */}
+      {openVideo && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 p-4"
+          onClick={closePlayer}                 // คลิกนอก = ปิด
+          onWheel={(e) => e.stopPropagation()}  // กัน scroll ทะลุ
+        >
+          <div
+            className="relative z-10 w-[92vw] max-w-[540px] md:max-w-5xl"
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerMove={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+          >
+            {/* player box: แนวตั้งบนมือถือ, แนวนอนบนจอใหญ่ */}
+            <div className="relative mx-auto aspect-[9/16] md:aspect-video w-full overflow-hidden rounded-2xl bg-black transition-opacity duration-300 opacity-100">
+              {openVideo._ytid ? (
+                <iframe
+                  key={`yt-${openVideo._ytid}`}
+                  src={`https://www.youtube.com/embed/${openVideo._ytid}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
+                  className="absolute inset-0 h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                  allowFullScreen
+                  onLoad={() => setIframeReady(true)}   // ✅ แสดงปุ่มหลังโหลด
+                />
+              ) : (
+                <iframe
+                  key={`tk-${openVideo._tiktok}-${playerNonce}`}
+                  src={withParams(openVideo._tiktok!, { autoplay: 1, muted: 1 })}
+                  className="absolute inset-0 h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                  allowFullScreen
+                  playsInline
+                  referrerPolicy="origin-when-cross-origin"
+                  onLoad={() => setIframeReady(true)}   // ✅ แสดงปุ่มหลังโหลด
+                />
+              )}
 
-      <div className="mt-4 flex justify-center">
-        <button
-  onClick={closePlayer}
-  className="flex items-center gap-2 rounded-full bg-red-600 px-5 py-2 
-             text-sm font-semibold text-white transition 
-             hover:bg-red-700 hover:scale-105 active:scale-95 
-             focus:outline-none cursor-pointer shadow-lg"
->
-  {/* ไอคอนกากบาท */}
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={2}
-    stroke="currentColor"
-    className="h-4 w-4"
-  >
-    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-  </svg>
-  ปิดวิดีโอ
-</button>
-      </div>
+              {/* สปินเนอร์เล็กๆ ระหว่างโหลด (ตัวเลือก) */}
+              {!iframeReady && (
+                <div className="absolute inset-0 grid place-items-center">
+                  <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/30 border-t-white/90" />
+                </div>
+              )}
+            </div>
+
+            {/* ปุ่มปิด: ล่างกึ่งกลาง + เคารพ safe-area (โผล่เมื่อ iframe พร้อม) */}
+            {iframeReady && (
+  <>
+    {/* พื้นหลังไล่สีแบบ fixed เต็มจอ ปิดรอยต่อทั้งหมด */}
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[10001] h-24 bg-gradient-to-t from-black/80 to-transparent" />
+
+    {/* ปุ่มแบบ fixed เต็มจอ + safe area */}
+    <div
+      className="fixed inset-x-0 bottom-3 z-[10002] flex justify-center"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom))" }}
+    >
+      <button
+        onClick={closePlayer}
+        aria-label="ปิดวิดีโอ"
+        className="
+          pointer-events-auto
+          flex items-center gap-2
+          rounded-full px-5 py-2.5 md:px-6 md:py-3
+          bg-red-600 text-white font-semibold
+          shadow-[0_10px_30px_rgba(0,0,0,.35)]
+          ring-2 ring-white/70 backdrop-blur
+          transition hover:bg-red-500 active:scale-95
+          focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50
+        "
+      >
+        {/* ไอคอน X */}
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" strokeWidth={2}
+             className="h-5 w-5 md:h-6 md:w-6 -ml-1">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
+        </svg>
+        ปิดวิดีโอ
+      </button>
     </div>
-  </div>
+  </>
 )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

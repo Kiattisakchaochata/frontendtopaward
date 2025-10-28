@@ -80,16 +80,18 @@ export async function generateMetadata(): Promise<Metadata> {
     applicationName: APP_NAME,
     keywords: kw,
     alternates: { canonical: "/" },
-    manifest: "/favicon/site.webmanifest",
+     // ✅ เปลี่ยนให้ชี้ไฟล์ที่ "ราก"
+    manifest: "/site.webmanifest",
     icons: {
       icon: [
-        { url: "/favicon/favicon.ico" },
-        { url: "/favicon/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-        { url: "/favicon/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+        { url: "/favicon.ico" },
+        { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+        { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
       ],
-      apple: { url: "/favicon/apple-touch-icon.png", sizes: "180x180" },
-      shortcut: "/favicon/favicon.ico",
+      apple: { url: "/apple-touch-icon.png", sizes: "180x180" },
+      shortcut: "/favicon.ico",
     },
+
     openGraph: {
       type: "website",
       url: SITE_URL,
@@ -151,7 +153,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="th" suppressHydrationWarning>
       <head>
   <meta charSet="utf-8" />
-  <meta name="referrer" content="origin-when-cross-origin" />
+  <meta name="referrer" content="no-referrer" />
   {preconnectHosts.map((h, i) => (
     <link key={`pc-${i}`} rel="preconnect" href={h} crossOrigin="" />
   ))}
